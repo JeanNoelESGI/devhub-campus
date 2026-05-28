@@ -15,15 +15,10 @@ metadata:
   namespace: argocd
 spec:
   generators:
-    # Git generator — surveille les branches qui matchent le pattern.
-    # Chaque branche feature/* génère une Application de preview.
-    - git:
-        repoURL: https://github.com/JeanNoelESGI/devhub-campus.git
-        revision: HEAD
-        # On utilise le generator "branches" (disponible depuis ArgoCD 2.11).
-        # Il expose {{branch}} et {{branchNormalized}} dans le template.
-        branches:
-          - pattern: "feature/*"
+    - list:
+        elements:
+          - branch: feature/demo-prof
+            branchNormalized: feature-demo-prof
 
   template:
     metadata:

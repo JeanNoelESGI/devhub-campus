@@ -7,26 +7,32 @@ metadata:
   name: notif-preview
   namespace: argocd
 spec:
-  generators: []
+  generators:
+    - list:
+        elements:
+          - branch: feature/demo-prof
+            branchNormalized: feature-demo-prof
   template:
     metadata:
-      name: notif-preview-{{branch_slug}}
+      name: notif-preview-{{branchNormalized}}
       labels:
         devhub.io/env: preview
         devhub.io/service: notif
     spec:
       project: devhub
       source:
-        repoURL: https://github.com/<votre-handle>/devhub-campus.git
+        repoURL: https://github.com/JeanNoelESGI/devhub-campus.git
         targetRevision: '{{branch}}'
         path: services/notif/chart
         helm:
           valueFiles:
             - values-preview.yaml
-          parameters: []
+          parameters:
+            - name: ingress.host
+              value: "{{branchNormalized}}-notif.devhub.local"
       destination:
         server: https://kubernetes.default.svc
-        namespace: devhub-preview-{{branch_slug}}
+        namespace: devhub-preview-{{branchNormalized}}
       syncPolicy:
         automated:
           prune: true

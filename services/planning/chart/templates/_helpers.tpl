@@ -7,9 +7,14 @@
 {{- end -}}
 
 {{- define "planning.labels" -}}
-{{/* TODO : 4 labels obligatoires (cf. polycopié). */}}
+app.kubernetes.io/name: {{ include "planning.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/part-of: devhub-campus
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end -}}
 
 {{- define "planning.selectorLabels" -}}
-{{/* TODO : sélecteur stable. */}}
+app.kubernetes.io/name: {{ include "planning.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
