@@ -1,33 +1,33 @@
-# Squelette à compléter — étape 3.
-# Mêmes contraintes que les autres services (multi-stage, non-root, ≤ 200 Mo).
-
-# ---- Stage 1 : build / install des dépendances ----
+# Stage 1 : build / install des dépendances
 FROM python:3.12-slim AS build
 
 WORKDIR /app
 
-# TODO : copiez requirements.txt et installez les dépendances dans un venv ou un --user.
-# Pourquoi ne PAS faire un simple `pip install` global dans cette stage ?
-# (réponse dans RAPPORT.md)
+# Installer pip et copier requirements.txt
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt --user
 
-# TODO : copiez le code de l'app.
+# Copier le code source de l'application
+COPY app/ ./app/
 
-# ---- Stage 2 : runtime ----
+# Stage 2 : runtime
 FROM python:3.12-slim AS runtime
 
-# TODO : LABEL org.opencontainers.image.source.
+LABEL org.opencontainers.image.source="https://github.com/JeanNoelESGI/devhub-campus"
+LABEL org.opencontainers.image.description="planning-service — DevHub Campus"
 
 WORKDIR /app
 
-# TODO : copiez depuis `build` le venv et le code, rien de plus.
+# Copier les packages python de l'utilisateur installés dans l'étape build
+COPY --from=build /root/.local /root/.local
+COPY --from=build /app/app ./app
 
-# TODO : créez l'utilisateur non-root, passez en USER.
-
-ENV PORT=8080 \
+# S'assurer que le PATH inclut les paquets locaux de l'utilisateur
+ENV PATH=/root/.local/bin:$PATH \
+    PORT=8080 \
     LOG_LEVEL=info \
     PYTHONUNBUFFERED=1
 
 EXPOSE 8080
 
-# TODO : commande de démarrage (uvicorn app.main:app …).
-# CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
