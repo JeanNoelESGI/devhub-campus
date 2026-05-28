@@ -1,6 +1,6 @@
 image:
-  repository: ghcr.io/<votre-handle>/notif
-  tag: ""
+  repository: ghcr.io/jeannoesgi/notif
+  tag: "97c8748"
   pullPolicy: IfNotPresent
 
 replicaCount: 2
