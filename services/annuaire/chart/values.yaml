@@ -4,7 +4,7 @@
 image:
   repository: ghcr.io/jeannoesgi/annuaire
   # Le tag est surchargé à chaque déploiement avec le SHA court du commit.
-  tag: ""
+  tag: "97c8748"
   pullPolicy: IfNotPresent
 
 # TODO : combien de répliques par défaut ?
