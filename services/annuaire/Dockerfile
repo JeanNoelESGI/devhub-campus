@@ -7,7 +7,9 @@ WORKDIR /app
 # On copie package.json EN PREMIER pour profiter du cache Docker :
 # si le code change mais pas les dépendances, npm ci n'est pas ré-exécuté.
 COPY package.json ./
-RUN npm ci --only=production
+# npm install car pas de package-lock.json dans le squelette du TP.
+# En production, on utiliserait npm ci avec un lock file commité.
+RUN npm install --omit=dev
 
 # Copie du code source APRÈS les dépendances.
 COPY src/ ./src/

@@ -2,7 +2,7 @@
 # Surchargées par values-dev.yaml et values-preview.yaml selon l'environnement.
 
 image:
-  repository: ghcr.io/JeanNoelESGI/annuaire
+  repository: ghcr.io/jeannoesgi/annuaire
   # Le tag est surchargé à chaque déploiement avec le SHA court du commit.
   tag: ""
   pullPolicy: IfNotPresent
