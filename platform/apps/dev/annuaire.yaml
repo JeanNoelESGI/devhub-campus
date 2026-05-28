@@ -1,0 +1,36 @@
+# Application ArgoCD : annuaire-dev
+#
+# Déploie le chart Helm de services/annuaire/chart dans le namespace devhub-dev.
+# Étape 5 (création manuelle) puis étape 6 (générée par la root).
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: annuaire-dev
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: devhub
+
+  source:
+    repoURL: https://github.com/JeanNoelESGI/devhub-campus.git
+    targetRevision: main
+    path: services/annuaire/chart
+    helm:
+      valueFiles:
+        - values-dev.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: devhub-dev
+
+  syncPolicy:
+    # Étape 5 : démarrer en sync AUTO avec selfHeal (valider d'abord en manuel si besoin).
+    # Pour basculer en manuel : commenter le bloc `automated` et cliquer Sync dans l'UI.
+    automated:
+      prune: false    # prune:false = ArgoCD ne supprime pas ce qui n'est plus dans Git
+      selfHeal: true  # selfHeal:true = ArgoCD corrige les drifts automatiquement
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

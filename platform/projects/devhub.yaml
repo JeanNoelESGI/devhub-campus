@@ -1,0 +1,61 @@
+# AppProject ArgoCD : `devhub`
+#
+# Un AppProject est votre brique de sécurité. Sans lui, n'importe quelle
+# Application peut pointer vers n'importe quel repo et déployer dans
+# n'importe quel namespace. C'est dangereux dans une plateforme partagée.
+#
+# Référence : https://argo-cd.readthedocs.io/en/stable/operator-manual/project-management/
+#
+# Étape 6 — complété.
+
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: devhub
+  namespace: argocd
+spec:
+  description: Plateforme DevHub Campus
+
+  # Dépôts Git autorisés pour ce projet. Tout autre repo est refusé.
+  sourceRepos:
+    - https://github.com/JeanNoelESGI/devhub-campus.git
+
+  # Destinations autorisées : cluster local + namespaces commençant par devhub-
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: argocd           # pour la root app elle-même
+    - server: https://kubernetes.default.svc
+      namespace: devhub-dev
+    - server: https://kubernetes.default.svc
+      namespace: devhub-preview-* # previews éphémères par branche
+
+  # Ressources cluster-scoped autorisées.
+  # Namespace : nécessaire pour CreateNamespace=true dans syncOptions.
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+
+  # Ressources namespace-scoped : tout autorisé pour le TP.
+  # En production, on restreindrait à Deployment, Service, Ingress, ConfigMap, etc.
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+  # Rôle developer (défi bonus étape 6) :
+  # — peut voir toutes les Applications du projet
+  # — peut sync uniquement sur son service
+  roles:
+    - name: developer
+      description: Développeur — lecture + sync limité
+      policies:
+        - p, role:developer, applications, get, devhub/*, allow
+        - p, role:developer, applications, sync, devhub/annuaire-*, allow
+      groups: []
+
+  # Fenêtre de synchronisation : interdit les syncs entre 18h et 8h (défi bonus).
+  # syncWindows:
+  #   - kind: deny
+  #     schedule: "0 18 * * 1-5"
+  #     duration: 14h
+  #     applications:
+  #       - "*"

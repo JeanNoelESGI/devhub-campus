@@ -1,0 +1,115 @@
+# Values Helm pour installer ArgoCD lui-même (chart argo/argo-cd).
+# Ce fichier est consommé par `make argocd-install`.
+#
+# Doc du chart : https://github.com/argoproj/argo-helm/tree/main/charts/argo-cd
+#
+# Le but de ce fichier : exposer l'UI via l'ingress-nginx du cluster,
+# avec un host `argocd.devhub.local`. Le reste est laissé par défaut.
+
+global:
+  domain: argocd.devhub.local
+
+configs:
+  params:
+    # désactive le TLS interne — l'ingress-nginx est devant pour le HTTPS.
+    server.insecure: true
+  cm:
+    timeout.reconciliation: 180s
+
+    # ── Étape 9 : compte local non-admin pour tester le RBAC ──────────────────
+    # Créez ensuite le mot de passe via :
+    #   argocd account update-password --account dev1 --new-password <password>
+    accounts.dev1: login, apiKey
+
+    # ── Étape 9 (défi) : OIDC / notifications activés via le chart ─────────────
+    # Pour l'instant non configuré — gardez ce commentaire pour le rapport.
+
+  # ── Étape 9 : RBAC ArgoCD ──────────────────────────────────────────────────
+  # Référence : https://argo-cd.readthedocs.io/en/stable/operator-manual/rbac/
+  # Syntaxe : p, <subject>, <resource>, <action>, <object>, <allow|deny>
+  rbac:
+    policy.default: "role:readonly"   # Par défaut : lecture seule (plus sûr que rien)
+    policy.csv: |
+      # Rôle platform-admin : tous les droits
+      p, role:platform-admin, applications, *, devhub/*, allow
+      p, role:platform-admin, clusters, *, *, allow
+      p, role:platform-admin, repositories, *, *, allow
+      p, role:platform-admin, projects, *, *, allow
+
+      # Rôle developer : lecture de toutes les Apps du projet devhub
+      #                  sync uniquement sur les Apps annuaire-*
+      p, role:developer, applications, get, devhub/*, allow
+      p, role:developer, applications, sync, devhub/annuaire-*, allow
+      p, role:developer, applications, action/*, devhub/annuaire-*, allow
+
+      # Binding : le compte dev1 → rôle developer
+      g, dev1, role:developer
+
+server:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hostname: argocd.devhub.local
+    annotations:
+      # ArgoCD termine son propre TLS en interne. On dit à l'ingress
+      # de ne pas refaire de TLS terminaison côté server.
+      nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    tls: false
+
+# ── Étape 9 : Notifications (webhook sur sync échouée) ──────────────────────
+# Pour activer, décommentez et renseignez l'URL webhook.site (unique par session).
+notifications:
+  enabled: true
+  # Le secret des webhooks doit être créé manuellement (ne pas commiter l'URL secrète).
+  # kubectl -n argocd create secret generic argocd-notifications-secret \
+  #   --from-literal=webhook-url=https://webhook.site/<votre-uuid>
+  notifiers:
+    service.webhook.devhub: |
+      url: $webhook-url
+      headers:
+        - name: Content-Type
+          value: application/json
+  templates:
+    template.app-sync-failed: |
+      webhook:
+        devhub:
+          method: POST
+          body: |
+            {
+              "application": "{{.app.metadata.name}}",
+              "revision": "{{.app.status.sync.revision}}",
+              "status": "{{.app.status.sync.status}}",
+              "message": "{{.app.status.operationState.message}}"
+            }
+  triggers:
+    trigger.on-sync-failed: |
+      - when: app.status.operationState.phase in ['Error', 'Failed']
+        send: [app-sync-failed]
+  subscriptions:
+    - recipients:
+        - devhub
+      triggers:
+        - on-sync-failed
+
+# ── Étape 9 : Métriques Prometheus ──────────────────────────────────────────
+# Les trois métriques utiles identifiées :
+#   1. argocd_app_info{health_status, sync_status} — état global des Applications
+#   2. argocd_git_request_total{repo, request_type} — nombre de requêtes Git (polling)
+#   3. argocd_app_reconcile_count — nombre de réconciliations (charge du controller)
+controller:
+  metrics:
+    enabled: true
+  resources:
+    requests: { cpu: "50m", memory: "256Mi" }
+    limits:   { cpu: "1",   memory: "1Gi" }
+
+server:
+  metrics:
+    enabled: true
+
+repoServer:
+  metrics:
+    enabled: true
+  resources:
+    requests: { cpu: "50m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "512Mi" }

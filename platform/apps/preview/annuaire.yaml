@@ -1,0 +1,60 @@
+# ApplicationSet : annuaire — previews par branche.
+#
+# Choix : `git` generator sur les branches feature/*.
+# Justification (RAPPORT.md) :
+#   - Plus simple que le pullRequest generator (pas besoin de token GitHub stocké).
+#   - Polling 3 min acceptable en TP (en prod, on brancherait un webhook).
+#   - Le pullRequest generator serait préférable en prod pour cibler uniquement les PRs ouvertes.
+#
+# Doc : https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: annuaire-preview
+  namespace: argocd
+spec:
+  generators:
+    # Git generator — surveille les branches qui matchent le pattern.
+    # Chaque branche feature/* génère une Application de preview.
+    - git:
+        repoURL: https://github.com/JeanNoelESGI/devhub-campus.git
+        revision: HEAD
+        # On utilise le generator "branches" (disponible depuis ArgoCD 2.11).
+        # Il expose {{branch}} et {{branchNormalized}} dans le template.
+        branches:
+          - pattern: "feature/*"
+
+  template:
+    metadata:
+      # branchNormalized = nom de branche avec / et majuscules remplacés (ex: feature-demo-prof).
+      # C'est obligatoire : les noms d'Application doivent être des labels K8s valides.
+      name: annuaire-preview-{{branchNormalized}}
+      namespace: argocd
+      labels:
+        devhub.io/env: preview
+        devhub.io/service: annuaire
+    spec:
+      project: devhub
+      source:
+        repoURL: https://github.com/JeanNoelESGI/devhub-campus.git
+        # On déploie la branche feature elle-même (pas main).
+        targetRevision: "{{branch}}"
+        path: services/annuaire/chart
+        helm:
+          valueFiles:
+            - values-preview.yaml
+          # On surcharge ingress.host à la volée pour avoir un domaine unique par preview.
+          parameters:
+            - name: ingress.host
+              value: "{{branchNormalized}}.devhub.local"
+      destination:
+        server: https://kubernetes.default.svc
+        # Namespace unique par preview — créé automatiquement via syncOptions.
+        namespace: "devhub-preview-{{branchNormalized}}"
+      syncPolicy:
+        automated:
+          prune: true       # IMPORTANT : indispensable pour nettoyer les previews à la suppression de branche
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
